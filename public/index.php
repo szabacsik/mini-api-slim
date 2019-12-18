@@ -50,6 +50,15 @@ $container -> set ( 'dependency', function () use ( $container ) {
     return new Dependency ( $container -> get ( 'config' ) );
 });
 
+$container -> set ( 'db', function () use ( $container ) {
+    $config = $container -> get ( 'config' ) -> database;
+    $pdo = new PDO ( 'mysql:host=' . $config -> host . ';dbname=' . $config -> name, $config -> user, $config -> password );
+    $pdo -> setAttribute ( PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION );
+    $pdo -> setAttribute ( PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC );
+    $pdo -> setAttribute ( PDO::MYSQL_ATTR_INIT_COMMAND, "SET NAMES 'utf8'" );
+    return $pdo;
+});
+
 //http://www.slimframework.com/docs/v4/objects/request.html
 //http://www.slimframework.com/docs/v4/concepts/middleware.html
 class JsonBodyParserMiddleware implements MiddlewareInterface
@@ -73,7 +82,14 @@ $app -> add ( $jsonBodyParserMiddleware );
 //$app -> addErrorMiddleware ( true, true, true );
 
 $app -> get ( '/', function ( Request $request, Response $response ) {
-    $response -> getBody () -> write ( json_encode ( [ 'status' => 'ok', 'config' => $this -> get ( 'config' ), 'dependency' => $this -> get ( 'dependency' ) ] ) );
+    $sql = 'SELECT * FROM `myTable` WHERE id=:id';
+    $db = $this -> get ( 'db' );
+    $query = $db -> prepare ( $sql );
+    $id = 100;
+    $query -> bindParam ( ':id', $id, PDO::PARAM_INT );
+    $query -> execute ();
+    $data = $query -> fetchAll ();
+    $response -> getBody () -> write ( json_encode ( [ 'status' => 'ok', 'config' => $this -> get ( 'config' ), 'dependency' => $this -> get ( 'dependency' ), 'data' => $data ] ) );
     return $response
         -> withHeader ( 'Content-Type', 'application/json' )
         -> withStatus ( 200 );
